@@ -30,15 +30,12 @@
 #include <sys/time.h>
 #include <sys/times.h>
 
-
 /* Variables */
 extern int __io_putchar(int ch) __attribute__((weak));
 extern int __io_getchar(void) __attribute__((weak));
 
-
-char *__env[1] = { 0 };
+char *__env[1] = {0};
 char **environ = __env;
-
 
 /* Functions */
 void initialise_monitor_handles()
@@ -58,11 +55,11 @@ int _kill(int pid, int sig)
   return -1;
 }
 
-void _exit (int status)
-{
-  _kill(status, -1);
-  while (1) {}    /* Make sure we hang here */
-}
+// void _exit (int status)
+// {
+//   _kill(status, -1);
+//   while (1) {}    /* Make sure we hang here */
+// }
 
 __attribute__((weak)) int _read(int file, char *ptr, int len)
 {
@@ -94,7 +91,6 @@ int _close(int file)
   (void)file;
   return -1;
 }
-
 
 int _fstat(int file, struct stat *st)
 {
