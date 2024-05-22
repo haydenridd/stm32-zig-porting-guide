@@ -187,7 +187,8 @@ blinky_exe.link_function_sections = true;
 
 This allows us to remove manually specified `-ffunction-sections` and `-fdata-sections` compile flags as well as `Wl,--gc-sections` linker flag. Zig does this for us now that we've asked it to.  
 
-And now... We should just be able to run `zig build` and get a blink-tastic binary!
+Finally, in a rather lazy way, I require passing in the path to root of the `arm-none-eabi-gcc` installation using a custom specified `-Darmgcc=...` option.
+And now... We should just be able to run `zig build -Darmgcc=/your/gcc/path/gcc-arm-none-eabi-10.3-2021.10` and get a blink-tastic binary!
 
 ## Miscellaneous Notes + Thoughts
 - Zig emits to stderror when `blinky_exe.setVerboseLink(true);` is used, see [here](https://github.com/ziglang/zig/issues/19410)
