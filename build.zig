@@ -22,23 +22,18 @@ pub fn build(b: *std.Build) void {
 
     // Manually including libraries bundled with arm-none-eabi-gcc
     const arm_gcc_path = b.option([]const u8, "armgcc", "Path to arm-none-eabi-gcc compiler") orelse unreachable;
-    const alloc = a: {
-        var v = std.heap.GeneralPurposeAllocator(.{}){};
-        break :a v.allocator();
-    };
-
-    blinky_exe.addLibraryPath(.{ .path = std.fmt.allocPrint(alloc, "{s}/arm-none-eabi/lib/thumb/v7e-m+fp/hard", .{arm_gcc_path}) catch unreachable });
-    blinky_exe.addLibraryPath(.{ .path = std.fmt.allocPrint(alloc, "{s}/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard", .{arm_gcc_path}) catch unreachable });
-    blinky_exe.addSystemIncludePath(.{ .path = std.fmt.allocPrint(alloc, "{s}/arm-none-eabi/include", .{arm_gcc_path}) catch unreachable });
+    blinky_exe.addLibraryPath(.{ .path = b.fmt("{s}/arm-none-eabi/lib/thumb/v7e-m+fp/hard", .{arm_gcc_path}) });
+    blinky_exe.addLibraryPath(.{ .path = b.fmt("{s}/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard", .{arm_gcc_path}) });
+    blinky_exe.addSystemIncludePath(.{ .path = b.fmt("{s}/arm-none-eabi/include", .{arm_gcc_path}) });
     blinky_exe.linkSystemLibrary("c_nano");
     blinky_exe.linkSystemLibrary("m");
 
     // Manually include C runtime objects bundled with arm-none-eabi-gcc
-    blinky_exe.addObjectFile(.{ .path = std.fmt.allocPrint(alloc, "{s}/arm-none-eabi/lib/thumb/v7e-m+fp/hard/crt0.o", .{arm_gcc_path}) catch unreachable });
-    blinky_exe.addObjectFile(.{ .path = std.fmt.allocPrint(alloc, "{s}/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crti.o", .{arm_gcc_path}) catch unreachable });
-    blinky_exe.addObjectFile(.{ .path = std.fmt.allocPrint(alloc, "{s}/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crtbegin.o", .{arm_gcc_path}) catch unreachable });
-    blinky_exe.addObjectFile(.{ .path = std.fmt.allocPrint(alloc, "{s}/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crtend.o", .{arm_gcc_path}) catch unreachable });
-    blinky_exe.addObjectFile(.{ .path = std.fmt.allocPrint(alloc, "{s}/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crtn.o", .{arm_gcc_path}) catch unreachable });
+    blinky_exe.addObjectFile(.{ .path = b.fmt("{s}/arm-none-eabi/lib/thumb/v7e-m+fp/hard/crt0.o", .{arm_gcc_path}) });
+    blinky_exe.addObjectFile(.{ .path = b.fmt("{s}/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crti.o", .{arm_gcc_path}) });
+    blinky_exe.addObjectFile(.{ .path = b.fmt("{s}/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crtbegin.o", .{arm_gcc_path}) });
+    blinky_exe.addObjectFile(.{ .path = b.fmt("{s}/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crtend.o", .{arm_gcc_path}) });
+    blinky_exe.addObjectFile(.{ .path = b.fmt("{s}/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crtn.o", .{arm_gcc_path}) });
 
     // Normal Include Paths
     blinky_exe.addIncludePath(b.path("Core/Inc"));
