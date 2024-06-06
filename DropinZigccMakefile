@@ -73,19 +73,24 @@ ASMM_SOURCES =
 #######################################
 
 
-# CHANGE NOTE: I'm still using arm-none-eabi-gcc here for size and objcopy utilities, however note that these have no effect on actual compilation 
-
+# CHANGE NOTE: I'm still using arm-none-eabi-gcc here for size and objcopy utilities, however note that these have no effect on actual compilation.
+#			   We also need  arm-none-eabi-gcc so that we can use some clever commands to automatically find the paths to required libraries we
+#			   must manually link in.
 PREFIX = arm-none-eabi-
-# CHANGE NOTE: GCC_PATH is required to be defined for our modified makefile to manually grab library paths
-#			   There's a more intelligent way to do this but that's an excercise for the reader :)
-CP = $(GCC_PATH)/bin/$(PREFIX)objcopy
-SZ = $(GCC_PATH)/bin/$(PREFIX)size
 
+ifdef GCC_PATH
+GCC_ARM_CC = $(GCC_PATH)/$(PREFIX)gcc
+CP = $(GCC_PATH)/$(PREFIX)objcopy
+SZ = $(GCC_PATH)/$(PREFIX)size
+else
+GCC_ARM_CC = $(PREFIX)gcc
+CP = $(PREFIX)objcopy
+SZ = $(PREFIX)size
+endif
 
 # CHANGE NOTE: zig cc is now used in place of arm-none-eabi-gcc
 CC = zig cc
 AS = zig cc -x assembler-with-cpp
-
 
 HEX = $(CP) -O ihex
 BIN = $(CP) -O binary -S
@@ -96,7 +101,7 @@ BIN = $(CP) -O binary -S
 # cpu
 # CHANGE NOTE: zig cc uses "_" instead of "-" in -mcpu arg
 CPU = -mcpu=cortex_m7
-
+GCC_ARM_CPU = -mcpu=cortex-m7
 # fpu
 FPU = -mfpu=fpv5-sp-d16
 
@@ -106,6 +111,7 @@ FLOAT-ABI = -mfloat-abi=hard
 # mcu
 # CHANGE NOTE: zig cc requires "--target=thumb-freestanding-eabi" to specify the target for both compilation AND linking
 MCU = --target=thumb-freestanding-eabi $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
+GCC_ARM_MCU = $(GCC_ARM_CPU) -mthumb $(FPU) $(FLOAT-ABI)
 
 # macros for gcc
 # AS defines
@@ -131,8 +137,21 @@ C_INCLUDES =  \
 # compile gcc flags
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
+# CHANGE NOTE: Using arm-none-eabi-gcc to define our needed system include paths
+GCC_ARM_SYSROOT = \
+  $(shell $(GCC_ARM_CC) $(GCC_ARM_MCU) -print-sysroot 2>&1)
+
+# CHANGE NOTE: The directory where Newlib's libc.a & libm.a reside for the specific target architecture
+GCC_ARM_MULTI_DIR = \
+  $(shell $(GCC_ARM_CC) $(GCC_ARM_MCU) -print-multi-directory 2>&1)
+
+# CHANGE NOTE: Need the version for some specific object paths
+GCC_ARM_VERSION = \
+  $(shell $(GCC_ARM_CC) $(GCC_ARM_MCU) -dumpversion 2>&1)
+
+
 # CHANGE NOTE: We manually add arm-none-eabi-gcc system headers as a system include path
-CFLAGS += -isystem $(GCC_PATH)/arm-none-eabi/include $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+CFLAGS += -isystem $(GCC_ARM_SYSROOT)/include $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2
@@ -156,7 +175,7 @@ LDSCRIPT = STM32F750N8Hx_FLASH.ld
 #  - "-lgcc" is no longer included, as Zig provides its own equivalent functionality to this library
 #  - "-lnosys" is also skipped, as ST already provides code with this functionality, so we get duplicate symbol errors otherwise
 LIBS = -lc_nano -lm
-LIBDIR = -L$(GCC_PATH)/lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/ -L$(GCC_PATH)/arm-none-eabi/lib/thumb/v7e-m+fp/hard/
+LIBDIR = -L$(GCC_ARM_SYSROOT)/../lib/gcc/arm-none-eabi/$(GCC_ARM_VERSION)/$(GCC_ARM_MULTI_DIR) -L$(GCC_ARM_SYSROOT)/lib/$(GCC_ARM_MULTI_DIR)
 LDFLAGS = $(MCU) -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,--gc-sections
 
 # default action: build all
@@ -170,13 +189,13 @@ all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(C_SOURCES:.c=.o)))
 vpath %.c $(sort $(dir $(C_SOURCES)))
 
-# CHANGE NOTE: We have to include the c-runtime objects from gcc-arm-none-eabi for our specific architecture
+# CHANGE NOTE: We have to manually include the c-runtime objects from gcc-arm-none-eabi for our specific architecture
 EXTRA_OBJECTS = \
-	$(GCC_PATH)/bin/../lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crti.o \
-	$(GCC_PATH)/bin/../lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crtbegin.o \
-	$(GCC_PATH)/bin/../lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crtn.o \
-	$(GCC_PATH)/bin/../lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard/crtend.o \
-	$(GCC_PATH)/bin/../lib/gcc/arm-none-eabi/10.3.1/../../../../arm-none-eabi/lib/thumb/v7e-m+fp/hard/crt0.o
+	$(GCC_ARM_SYSROOT)/../lib/gcc/arm-none-eabi/$(GCC_ARM_VERSION)/$(GCC_ARM_MULTI_DIR)/crti.o \
+	$(GCC_ARM_SYSROOT)/../lib/gcc/arm-none-eabi/$(GCC_ARM_VERSION)/$(GCC_ARM_MULTI_DIR)/crtbegin.o \
+	$(GCC_ARM_SYSROOT)/../lib/gcc/arm-none-eabi/$(GCC_ARM_VERSION)/$(GCC_ARM_MULTI_DIR)/crtn.o \
+	$(GCC_ARM_SYSROOT)/../lib/gcc/arm-none-eabi/$(GCC_ARM_VERSION)/$(GCC_ARM_MULTI_DIR)/crtend.o \
+	$(GCC_ARM_SYSROOT)/lib/$(GCC_ARM_MULTI_DIR)/crt0.o
 
 # list of ASM program objects
 OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASM_SOURCES:.s=.o)))
