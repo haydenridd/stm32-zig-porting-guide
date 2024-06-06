@@ -192,5 +192,5 @@ And now... We should just be able to run `zig build -Darmgcc=/your/gcc/path/gcc-
 
 ## Miscellaneous Notes + Thoughts
 - Zig emits to stderror when `blinky_exe.setVerboseLink(true);` is used, see [here](https://github.com/ziglang/zig/issues/19410)
-- When `blinky_exe.setVerboseLink(true);` is used, linker command appears to use "armelf_linux_eabi" as its triple which is... odd, and I don't think accurate
+- When `blinky_exe.setVerboseLink(true);` is used, linker command appears to use "armelf_linux_eabi" as its triple which I've confirmed is "correct" but that triple is a bit of a misnomer given we are NOT compiling/linking for a linux system
 
