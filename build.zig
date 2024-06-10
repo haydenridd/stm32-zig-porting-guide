@@ -48,18 +48,18 @@ pub fn build(b: *std.Build) void {
     const gcc_arm_lib_path2 = b.fmt("{s}/lib/{s}", .{ gcc_arm_sysroot_path, gcc_arm_multidir_relative_path });
 
     // Manually add "nano" variant newlib C standard lib from arm-none-eabi-gcc library folders
-    blinky_exe.addLibraryPath(.{ .path = gcc_arm_lib_path1 });
-    blinky_exe.addLibraryPath(.{ .path = gcc_arm_lib_path2 });
-    blinky_exe.addSystemIncludePath(.{ .path = b.fmt("{s}/include", .{gcc_arm_sysroot_path}) });
+    blinky_exe.addLibraryPath(.{ .cwd_relative = gcc_arm_lib_path1 });
+    blinky_exe.addLibraryPath(.{ .cwd_relative = gcc_arm_lib_path2 });
+    blinky_exe.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{gcc_arm_sysroot_path}) });
     blinky_exe.linkSystemLibrary("c_nano");
     blinky_exe.linkSystemLibrary("m");
 
     // Manually include C runtime objects bundled with arm-none-eabi-gcc
-    blinky_exe.addObjectFile(.{ .path = b.fmt("{s}/crt0.o", .{gcc_arm_lib_path2}) });
-    blinky_exe.addObjectFile(.{ .path = b.fmt("{s}/crti.o", .{gcc_arm_lib_path1}) });
-    blinky_exe.addObjectFile(.{ .path = b.fmt("{s}/crtbegin.o", .{gcc_arm_lib_path1}) });
-    blinky_exe.addObjectFile(.{ .path = b.fmt("{s}/crtend.o", .{gcc_arm_lib_path1}) });
-    blinky_exe.addObjectFile(.{ .path = b.fmt("{s}/crtn.o", .{gcc_arm_lib_path1}) });
+    blinky_exe.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crt0.o", .{gcc_arm_lib_path2}) });
+    blinky_exe.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crti.o", .{gcc_arm_lib_path1}) });
+    blinky_exe.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crtbegin.o", .{gcc_arm_lib_path1}) });
+    blinky_exe.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crtend.o", .{gcc_arm_lib_path1}) });
+    blinky_exe.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crtn.o", .{gcc_arm_lib_path1}) });
 
     // Normal Include Paths
     blinky_exe.addIncludePath(b.path("Core/Inc"));
@@ -103,7 +103,7 @@ pub fn build(b: *std.Build) void {
     blinky_exe.link_gc_sections = true;
     blinky_exe.link_data_sections = true;
     blinky_exe.link_function_sections = true;
-    blinky_exe.setLinkerScriptPath(.{ .path = "./STM32F750N8Hx_FLASH.ld" });
+    blinky_exe.setLinkerScriptPath(b.path("./STM32F750N8Hx_FLASH.ld"));
 
     // Produce .bin file from .elf
     const bin = b.addObjCopy(blinky_exe.getEmittedBin(), .{
