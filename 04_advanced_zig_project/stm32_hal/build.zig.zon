@@ -1,0 +1,18 @@
+.{
+    .name = "stm32_hal",
+    .version = "0.0.0",
+    .dependencies = .{
+        .gatz = .{
+            .url = "git+https://github.com/haydenridd/gcc-arm-to-zig#ff5d2dfb03149981237a16d5e93b8c39224f318a",
+            .hash = "122079adf4c3bf1082b907ea8438096c50c193fa3224ea590dd0c7d3eff1d405c3de",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "Core",
+        "Drivers",
+        "startup_stm32f750xx.s",
+        "STM32F750N8Hx_FLASH.ld",
+    },
+}
