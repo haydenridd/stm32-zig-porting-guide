@@ -1,0 +1,15 @@
+.{
+    .name = "stm32_zig_porting",
+    .version = "0.0.0",
+    .dependencies = .{
+        .stm32_hal = .{
+            .path = "stm32_hal",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+    },
+}
