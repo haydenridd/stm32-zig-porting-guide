@@ -205,7 +205,7 @@ const blinky_exe = b.addExecutable(.{
 ```
 
 Everything should now compile and... do a whole lot of nothing. But believe it or not, we've successfully called into Zig code from C code!
-`export fn zigMain() void ` tells Zig "export a function symbol taking `void` and returning `void`, and make it C ABI compatible. This fulfills our earlier
+`export fn zigMain() void ` tells Zig "export a function symbol taking `void` and returning `void`, and make it C ABI compatible". This fulfills our earlier
 promise to the compiler that there was an `extern` symbol somewhere called `zigMain` with the function signature `void zigMain(void);`.
 
 ## Calling HAL Code from Zig
