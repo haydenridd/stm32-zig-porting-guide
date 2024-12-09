@@ -93,30 +93,40 @@ They make extensive use of "weak" symbols for interrupt handlers, and compiling 
 - https://ziggit.dev/t/c-sources-only-module-behavior/4774/10?u=haydenridd
 - https://stackoverflow.com/questions/13089166/how-to-make-gcc-link-strong-symbol-in-static-library-to-overwrite-weak-symbol
 
-So what should we use? Well, there's something in Zig's build system similar in function to CMake's [object library](https://cmake.org/cmake/help/latest/command/add_library.html#object-libraries) that should serve our purpose nicely. It sidesteps the issues with static libraries, but still lets us organize source files, dependencies, linker scripts, and system libraries into a nice consumable bundle. See [build.zig](stm32_hal/build.zig) for the relevant commands.
+So what should we use? Well, thankfully Zig's build system is just Zig code, which can have functions just like any other normal Zig code. So we will create a function to add all of our HAL dependencies to a given executable that can be access by our top level build script. 
 
-The last piece of the puzzle is linking Newlib to this HAL code. The `gatz` project exposes a namespace `newlib` for just this purpose. It's as simple as adding:
+We create a new function that will add all our HAL dependencies in [stm32_hal/build.zig](stm32_hal/build.zig):
+```zig
+pub fn addTo(b: *std.Build, executable: *std.Build.Step.Compile) void {
+    ...
+}
+```
+
+Note that we take as input both our build object as well as the executable we want to add our sources to. From their it's largely the same as what we've accomplished in pervious steps, just that we're now adding sources/linker scripts/etc. to our executable passed to this function. Now, we want to link in Newlib as this HAL code depends on this. The `gatz` project exposes a namespace `newlib` for just this purpose. It's as simple as adding:
 ``` zig
 pub const newlib = @import("gatz").newlib;
 ```
-To the top of our `build.zig` file. And then in our `build.zig`:
+To the top of our `build.zig` file. And then in our `addTo()` function:
 ``` Zig
 // Pull in Newlib with a utility
-newlib.addTo(b, target, stm32_hal) catch |err| switch (err) {
+const resolved_target_from_exe = executable.root_module.resolved_target.?;
+newlib.addTo(b, resolved_target_from_exe, executable) catch |err| switch (err) {
     newlib.Error.CompilerNotFound => {
         std.log.err("Couldn't find arm-none-eabi-gcc compiler!\n", .{});
         unreachable;
     },
     newlib.Error.IncompatibleCpu => {
-        std.log.err("Cpu: {s} isn't supported by gatz!\n", .{target.result.cpu.model.name});
+        std.log.err("Cpu: {s} isn't supported by gatz!\n", .{resolved_target_from_exe.result.cpu.model.name});
         unreachable;
     },
 };
 ```
 
+Note how we've extracted the target the executable is being compiled for from the `exe` function input; At this point, we have a function that can add all of our requried dependencies to our executable, but how do we actually access and all this function in our main `build.zig`? On to...
+
 ## Depending on the `stm32_hal` Package
 
-Organizing our HAL code makes our top level `build.zig` much simpler. First, to be able to access our new `stm32_hal` package, we add the following to `build.zig.zon` in our top level project:
+Seperating out the build steps for our HAL code makes our top level `build.zig` much simpler. But to be able to access our new `stm32_hal` package, we need to add the following to `build.zig.zon` in our top level project:
 ``` zon
 .dependencies = .{
     .stm32_hal = .{
@@ -125,47 +135,23 @@ Organizing our HAL code makes our top level `build.zig` much simpler. First, to 
 },
 ```
 This tells Zig's package manager to fetch our package locally from the relative path "stm32_hal".
-We now delete all the code including sources/headers/assembly/linker scripts, and import + depend on our package like so:
+We now delete all the code including sources/headers/assembly/linker scripts, and import + use our package like so:
 ``` zig
-// Add STM32 Hal
-const stm32_hal = b.dependency("stm32_hal", .{ .target = target, .optimize = optimize }).artifact("stm32_hal");
-blinky_exe.addObject(stm32_hal);
+const stm32_hal = @import("stm32_hal");
+...
+
+pub fn build(b: *std.Build) void {
+    ...
+    // Add STM32 Hal
+    stm32_hal.addTo(b, blinky_exe);
+    ...
 ```
 
-There's only one more minor annoyance with this method, due to the following issue:
-https://github.com/ziglang/zig/issues/20431
-
-Our main "blinky" executable will try to link against libc, but not be able to find it due to not having the system paths/include paths `stm32_hal` does.
-`gatz` has a function for just this purpose. We don't have to add `gatz` as a dependency to our top level project, because `stm32_hal` already has it! We can import it in our build script like so:
-``` Zig
-const newlib = @import("stm32_hal").newlib;
-```
-
-Note that the *only* reason this is possible is because in our `stm32_hal`'s [build.zig](stm32_hal/build.zig) we included the following line:
-``` Zig
-pub const newlib = @import("gatz").newlib;
-```
-
-Zig packages can be a little goofy, but a short blurb that describes using "build utilities" from packages is:
+At this point you might be rightfully wondering how our `build.zig.zon` addition let us directly import `stm32_hal`. Zig's package manager is still relatively undocumented, but generally speaking:
 - If you want your package to export utility functions *to be used in a build.zig file*, you must mark them `pub` *in that package's build.zig* file. 
 
-Browsing the [gatz](https://github.com/haydenridd/gcc-arm-to-zig) source code is a nice way to learn about a couple different ways you can use packages, as that package supplies both an API for using in a build.zig file, as well as an API that Zig code can call.
+In our case, the *only* purpose our package serves is to provide build utility functions. To get more information on how Zig's packages work, browsing the [gatz](https://github.com/haydenridd/gcc-arm-to-zig) source code is a nice way to learn. It demonstrates a couple different ways you can use packages, as that package supplies both an API for using in a build.zig file, as well as an API that Zig code can call.
 
-Finally, now that we've imported our `newlib` namespace, we can add the following to add in the system paths + include paths to our main executable:
-``` Zig
-// This ideally won't be neccessary in the future, see:
-// - https://github.com/ziglang/zig/issues/20431
-newlib.addIncludeHeadersAndSystemPathsTo(b, target, blinky_exe) catch |err| switch (err) {
-    newlib.Error.CompilerNotFound => {
-        std.log.err("Couldn't find arm-none-eabi-gcc compiler!\n", .{});
-        unreachable;
-    },
-    newlib.Error.IncompatibleCpu => {
-        std.log.err("Cpu: {s} isn't supported by gatz!\n", .{target.result.cpu.model.name});
-        unreachable;
-    },
-};
-```
 
 ## Adding Zig Code
 

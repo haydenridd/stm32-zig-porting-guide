@@ -1,5 +1,5 @@
 const std = @import("std");
-const newlib = @import("stm32_hal").newlib;
+const stm32_hal = @import("stm32_hal");
 
 pub fn build(b: *std.Build) void {
     const target = b.resolveTargetQuery(.{
@@ -25,21 +25,7 @@ pub fn build(b: *std.Build) void {
     });
 
     // Add STM32 Hal
-    const stm32_hal = b.dependency("stm32_hal", .{ .target = target, .optimize = optimize }).artifact("stm32_hal");
-    blinky_exe.addObject(stm32_hal);
-
-    // This ideally won't be neccessary in the future, see:
-    // - https://github.com/ziglang/zig/issues/20431
-    newlib.addIncludeHeadersAndSystemPathsTo(b, target, blinky_exe) catch |err| switch (err) {
-        newlib.Error.CompilerNotFound => {
-            std.log.err("Couldn't find arm-none-eabi-gcc compiler!\n", .{});
-            unreachable;
-        },
-        newlib.Error.IncompatibleCpu => {
-            std.log.err("Cpu: {s} isn't supported by gatz!\n", .{target.result.cpu.model.name});
-            unreachable;
-        },
-    };
+    stm32_hal.addTo(b, blinky_exe);
 
     blinky_exe.link_gc_sections = true;
     blinky_exe.link_data_sections = true;
