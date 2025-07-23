@@ -5,7 +5,7 @@ pub fn build(b: *std.Build) void {
         .cpu_arch = .thumb,
         .os_tag = .freestanding,
         .abi = .eabihf,
-        .cpu_model = std.zig.CrossTarget.CpuModel{ .explicit = &std.Target.arm.cpu.cortex_m7 },
+        .cpu_model = std.Target.Query.CpuModel{ .explicit = &std.Target.arm.cpu.cortex_m7 },
         // Note that "fp_armv8d16sp" is the same instruction set as "fpv5-sp-d16", so LLVM only has the former
         // https://github.com/llvm/llvm-project/issues/95053
         .cpu_features_add = std.Target.arm.featureSet(&[_]std.Target.arm.Feature{std.Target.arm.Feature.fp_armv8d16sp}),
@@ -13,13 +13,19 @@ pub fn build(b: *std.Build) void {
     const executable_name = "blinky";
 
     const optimize = b.standardOptimizeOption(.{});
-    const blinky_exe = b.addExecutable(.{
-        .name = executable_name ++ ".elf",
+
+    const blinky_mod = b.addModule(executable_name, .{
         .target = target,
         .optimize = optimize,
         .link_libc = false,
-        .linkage = .static,
         .single_threaded = true,
+        .sanitize_c = false, // Currently important if including any C files b/c of https://github.com/ziglang/zig/issues/23052, otherwise binary can get bloated
+    });
+
+    const blinky_exe = b.addExecutable(.{
+        .name = executable_name ++ ".elf",
+        .root_module = blinky_mod,
+        .linkage = .static,
     });
 
     // User Options
@@ -49,31 +55,39 @@ pub fn build(b: *std.Build) void {
     const gcc_arm_lib_path2 = b.fmt("{s}/lib/{s}", .{ gcc_arm_sysroot_path, gcc_arm_multidir_relative_path });
 
     // Manually add "nano" variant newlib C standard lib from arm-none-eabi-gcc library folders
-    blinky_exe.addLibraryPath(.{ .cwd_relative = gcc_arm_lib_path1 });
-    blinky_exe.addLibraryPath(.{ .cwd_relative = gcc_arm_lib_path2 });
-    blinky_exe.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{gcc_arm_sysroot_path}) });
-    blinky_exe.linkSystemLibrary("c_nano");
-    blinky_exe.linkSystemLibrary("m");
+    blinky_mod.addLibraryPath(.{ .cwd_relative = gcc_arm_lib_path1 });
+    blinky_mod.addLibraryPath(.{ .cwd_relative = gcc_arm_lib_path2 });
+    blinky_mod.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{gcc_arm_sysroot_path}) });
+    blinky_mod.linkSystemLibrary("c_nano", .{
+        .needed = true,
+        .preferred_link_mode = .static,
+        .use_pkg_config = .no,
+    });
+    blinky_mod.linkSystemLibrary("m", .{
+        .needed = true,
+        .preferred_link_mode = .static,
+        .use_pkg_config = .no,
+    });
 
     // Manually include C runtime objects bundled with arm-none-eabi-gcc
-    blinky_exe.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crt0.o", .{gcc_arm_lib_path2}) });
-    blinky_exe.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crti.o", .{gcc_arm_lib_path1}) });
-    blinky_exe.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crtbegin.o", .{gcc_arm_lib_path1}) });
-    blinky_exe.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crtend.o", .{gcc_arm_lib_path1}) });
-    blinky_exe.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crtn.o", .{gcc_arm_lib_path1}) });
+    blinky_mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crt0.o", .{gcc_arm_lib_path2}) });
+    blinky_mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crti.o", .{gcc_arm_lib_path1}) });
+    blinky_mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crtbegin.o", .{gcc_arm_lib_path1}) });
+    blinky_mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crtend.o", .{gcc_arm_lib_path1}) });
+    blinky_mod.addObjectFile(.{ .cwd_relative = b.fmt("{s}/crtn.o", .{gcc_arm_lib_path1}) });
 
     // Normal Include Paths
-    blinky_exe.addIncludePath(b.path("Core/Inc"));
-    blinky_exe.addIncludePath(b.path("Drivers/STM32F7xx_HAL_Driver/Inc"));
-    blinky_exe.addIncludePath(b.path("Drivers/STM32F7xx_HAL_Driver/Inc/Legacy"));
-    blinky_exe.addIncludePath(b.path("Drivers/CMSIS/Device/ST/STM32F7xx/Include"));
-    blinky_exe.addIncludePath(b.path("Drivers/CMSIS/Include"));
+    blinky_mod.addIncludePath(b.path("Core/Inc"));
+    blinky_mod.addIncludePath(b.path("Drivers/STM32F7xx_HAL_Driver/Inc"));
+    blinky_mod.addIncludePath(b.path("Drivers/STM32F7xx_HAL_Driver/Inc/Legacy"));
+    blinky_mod.addIncludePath(b.path("Drivers/CMSIS/Device/ST/STM32F7xx/Include"));
+    blinky_mod.addIncludePath(b.path("Drivers/CMSIS/Include"));
 
     // Startup file
-    blinky_exe.addAssemblyFile(b.path("startup_stm32f750xx.s"));
+    blinky_mod.addAssemblyFile(b.path("startup_stm32f750xx.s"));
 
     // Source files
-    blinky_exe.addCSourceFiles(.{
+    blinky_mod.addCSourceFiles(.{
         .files = &.{
             "Core/Src/main.c",
             "Core/Src/gpio.c",
@@ -98,13 +112,13 @@ pub fn build(b: *std.Build) void {
             "Core/Src/sysmem.c",
             "Core/Src/syscalls.c",
         },
-        .flags = &.{ "-Og", "-std=c11", "-DUSE_HAL_DRIVER", "-DSTM32F750xx" },
+        .flags = &.{ "-std=c11", "-DUSE_HAL_DRIVER", "-DSTM32F750xx" },
     });
 
     blinky_exe.link_gc_sections = true;
     blinky_exe.link_data_sections = true;
     blinky_exe.link_function_sections = true;
-    blinky_exe.setLinkerScriptPath(b.path("./STM32F750N8Hx_FLASH.ld"));
+    blinky_exe.setLinkerScript(b.path("./STM32F750N8Hx_FLASH.ld"));
 
     // Produce .bin file from .elf
     const bin = b.addObjCopy(blinky_exe.getEmittedBin(), .{

@@ -3,7 +3,7 @@
 This repo serves as a guide for porting existing STM32CubeMX projects to the Zig C/C++ compiler, unlocking the ability to mix C/C++ and Zig code in your project.
 It is intended to track major release versions of Zig, as Zig is still in development and subject to change. This repo is currently tracking Zig:
 
-`0.13.0`  
+`0.14.1`  
 
 ## Project Setup
 
