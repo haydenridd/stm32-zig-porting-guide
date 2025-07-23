@@ -1,9 +1,11 @@
 .{
-    .name = "stm32_zig_porting",
+    .name = .stm32_zig_porting,
+    .fingerprint = 0x2d8bd33af4894acb,
     .version = "0.0.0",
     .dependencies = .{
-        .stm32_hal = .{
-            .path = "stm32_hal",
+        .gatz = .{
+            .url = "git+https://github.com/haydenridd/gcc-arm-to-zig#03dcd9ebcfc2f939cc4b053cb3796d9a0f91dd9e",
+            .hash = "gatz-0.0.0-aAr5xGCoAAAZbkEgw4SfS63VakN8gV0M3VT48tInlsLc",
         },
     },
     .paths = .{

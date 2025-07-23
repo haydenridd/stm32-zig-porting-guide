@@ -64,7 +64,7 @@ Links in the C standard library, math library, and "nosys" library in that order
 You can find more information on spec files [here](https://gcc.gnu.org/onlinedocs/gcc/Spec-Files.html), however this particular one does the following:
 - Any time `-lc` (the C standard library) is linked in, actually use `-lc_nano`, which is the "nano" variant of the newlib standard C library. 
 
-Newlib, and newlib-nano, are bundled with `arm-none-eabi-gcc` as pre-compiled binaries. The compiler knows which ones to choose automatically based on `-mcpu`, `-mfpu`, `-mfloat-abi` and `-mthumb` compiler args. `zig cc` will not know which one to choose, or even where to find it by default, which we'll get to later.
+Newlib, and newlib-nano, are bundled with `arm-none-eabi-gcc` as pre-compiled binaries. The compiler knows which ones to choose automatically based on `-mcpu`, `-mfpu`, `-mfloat-abi` and `-mthumb` compiler args. `zig cc` will not know which one to choose, or even where to find it, which we'll get to later.
 
 Now we're *almost* ready to get started with porting, but there's one more extremely helpful thing we can do. If the linker argument `Wl,--verbose` is added to the linker args via `LDFLAGS` variable, it can give us some easy information about what precisely is getting linked into our code. Running `make | grep succeeded` produces the following:
 
