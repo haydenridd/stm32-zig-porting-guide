@@ -175,5 +175,5 @@ Armed with our previously gathered information, we can make a new Makefile to us
 - We add an additional system include path using `-isystem` to point at our `arm-none-eabi-gcc` installation so we can manually link in pre-compiled libraries
 With these modifications
 - We ditch linking in `-lgcc` and `-lnosys`, see [Makefile](./Makefile) for a more detailed explanation
-
+- We add `-fno-sanitize=all` flag to keep from bloating our binary by linking in clangs undefined behavior sanitizers 
 And that's it! We (or at least I) now have a blinky program that blinks as expected when compiled with `arm-none-eabi-gcc` OR `zig cc`. 

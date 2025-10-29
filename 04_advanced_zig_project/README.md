@@ -192,7 +192,7 @@ const blinky_mod = b.addModule(executable_name, .{
     .optimize = optimize,
     .link_libc = false,
     .single_threaded = true,
-    .sanitize_c = false, // Currently important if including any C files b/c of https://github.com/ziglang/zig/issues/23052, otherwise binary can get bloated
+    .sanitize_c = .off, // Removes C UBSAN runtime from executable (bloats binary)
 });
 ```
 
