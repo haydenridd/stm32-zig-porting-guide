@@ -122,21 +122,25 @@ pub fn build(b: *std.Build) void {
     blinky_exe.link_function_sections = true;
     blinky_exe.setLinkerScript(b.path("./STM32F750N8Hx_FLASH.ld"));
 
-    // Produce .bin file from .elf
-    const bin = b.addObjCopy(blinky_exe.getEmittedBin(), .{
-        .format = .bin,
-    });
-    bin.step.dependOn(&blinky_exe.step);
-    const copy_bin = b.addInstallBinFile(bin.getOutput(), executable_name ++ ".bin");
-    b.default_step.dependOn(&copy_bin.step);
+    // NOTE: There's currently some bugs with Zig's implementation of objcopy:
+    // https://github.com/ziglang/zig/issues/25653
+    // For now I'd reccomend gnu's objcopy or llvm-objcopy to accomplish the following:
 
-    // Produce .hex file from .elf
-    const hex = b.addObjCopy(blinky_exe.getEmittedBin(), .{
-        .format = .hex,
-    });
-    hex.step.dependOn(&blinky_exe.step);
-    const copy_hex = b.addInstallBinFile(hex.getOutput(), executable_name ++ ".hex");
-    b.default_step.dependOn(&copy_hex.step);
+    // // Produce .bin file from .elf
+    // const bin = b.addObjCopy(blinky_exe.getEmittedBin(), .{
+    //     .format = .bin,
+    // });
+    // bin.step.dependOn(&blinky_exe.step);
+    // const copy_bin = b.addInstallBinFile(bin.getOutput(), executable_name ++ ".bin");
+    // b.default_step.dependOn(&copy_bin.step);
+
+    // // Produce .hex file from .elf
+    // const hex = b.addObjCopy(blinky_exe.getEmittedBin(), .{
+    //     .format = .hex,
+    // });
+    // hex.step.dependOn(&blinky_exe.step);
+    // const copy_hex = b.addInstallBinFile(hex.getOutput(), executable_name ++ ".hex");
+    // b.default_step.dependOn(&copy_hex.step);
 
     b.installArtifact(blinky_exe);
 }
