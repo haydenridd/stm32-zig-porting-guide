@@ -135,7 +135,7 @@ C_INCLUDES =  \
 
 
 # compile gcc flags
-ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections -fno-sanitize=all
 
 # CHANGE NOTE: Using arm-none-eabi-gcc to define our needed system include paths
 GCC_ARM_SYSROOT = \
@@ -151,7 +151,7 @@ GCC_ARM_VERSION = \
 
 
 # CHANGE NOTE: We manually add arm-none-eabi-gcc system headers as a system include path
-CFLAGS += -isystem $(GCC_ARM_SYSROOT)/include $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+CFLAGS += -isystem $(GCC_ARM_SYSROOT)/include $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections -fno-sanitize=all
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2

@@ -4,7 +4,7 @@ pub fn build(b: *std.Build) void {
     const target = b.resolveTargetQuery(.{
         .cpu_arch = .thumb,
         .os_tag = .freestanding,
-        .abi = .eabihf,
+        .abi = .eabi,
         .cpu_model = std.Target.Query.CpuModel{ .explicit = &std.Target.arm.cpu.cortex_m7 },
         // Note that "fp_armv8d16sp" is the same instruction set as "fpv5-sp-d16", so LLVM only has the former
         // https://github.com/llvm/llvm-project/issues/95053
@@ -19,7 +19,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = false,
         .single_threaded = true,
-        .sanitize_c = false, // Currently important if including any C files b/c of https://github.com/ziglang/zig/issues/23052, otherwise binary can get bloated
+        .sanitize_c = .off, // Removes C UBSAN runtime from executable (bloats binary)
     });
 
     const blinky_exe = b.addExecutable(.{
@@ -112,8 +112,10 @@ pub fn build(b: *std.Build) void {
             "Core/Src/sysmem.c",
             "Core/Src/syscalls.c",
         },
-        .flags = &.{ "-std=c11", "-DUSE_HAL_DRIVER", "-DSTM32F750xx" },
+        .flags = &.{"-std=c11"},
     });
+    blinky_mod.addCMacro("USE_HAL_DRIVER", "");
+    blinky_mod.addCMacro("STM32F750xx", "");
 
     blinky_exe.link_gc_sections = true;
     blinky_exe.link_data_sections = true;
