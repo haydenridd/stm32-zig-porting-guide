@@ -57,6 +57,11 @@ pub fn build(b: *std.Build) void {
     // Manually add "nano" variant newlib C standard lib from arm-none-eabi-gcc library folders
     blinky_mod.addLibraryPath(.{ .cwd_relative = gcc_arm_lib_path1 });
     blinky_mod.addLibraryPath(.{ .cwd_relative = gcc_arm_lib_path2 });
+
+    // NOTE: There's some potential name collision issues here, see the following for more details:
+    //       https://github.com/ziglang/zig/issues/24558
+    //       In the future Zig will provide it's own implementation of libc, even for freestanding targets which will
+    //       make needing to manually link in these libraries unneccessary.
     blinky_mod.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{gcc_arm_sysroot_path}) });
     blinky_mod.linkSystemLibrary("c_nano", .{
         .needed = true,

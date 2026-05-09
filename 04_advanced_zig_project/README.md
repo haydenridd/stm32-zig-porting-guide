@@ -149,7 +149,7 @@ fn addNewlib(b: *std.Build, module: *std.Build.Module) void {
 ## Some Notes on Zig Packages
 
 At this point you might be rightfully wondering how our `build.zig.zon` addition let us directly import `gatz` for use
-in our build.zig (and where `gatz` even comes from). Zig's package manager is still relatively undocumented, but generally speaking:
+in our build.zig (and where `gatz` even comes from). Documentation on Zig's package manager is still light, but generally speaking:
 - If you want your package to export utility functions *to be used in a build.zig file*, you must mark them `pub`
 *in that package's build.zig* file. Take a look at the source code for the
 [gatz](https://github.com/haydenridd/gcc-arm-to-zig) package to learn more about how to make/use packages. It

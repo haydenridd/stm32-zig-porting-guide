@@ -4,7 +4,7 @@ Surely we can do better than a Makefile though, right? This is [insert year it i
 
 ## Migrating To Zig's Build System
 
-Zig also includes its own build-system. Documentation is on the... light... side for now, but there are enough examples out there (like this one!) to get something working. I won't go into the nitty gritty of how precisely Zig's build system works, but will provide some guidance on how our Makefile from [02_drop_in_compiler](../02_drop_in_compiler) translates to [build.zig](./build.zig). 
+Zig also includes its own build-system. Documentation is light (and improving!), but there are enough examples out there (like this one!) to get something working. I won't go into the nitty gritty of how precisely Zig's build system works, but will provide some guidance on how our Makefile from [02_drop_in_compiler](../02_drop_in_compiler) translates to [build.zig](./build.zig).
 
 Some specific callouts:
 
@@ -31,6 +31,7 @@ blinky_exe.link_function_sections = true;
 This allows us to remove manually specified `-ffunction-sections` and `-fdata-sections` compile flags as well as `Wl,--gc-sections` linker flag. Zig does this for us now that we've asked it to.  
 
 Finally, I use Zig to try to find `arm-none-eabi-gcc` either via a user supplied path (supply with `-Darmgcc=...`) or in the system's `PATH` variable:
+
 ``` Zig
 // Try to find arm-none-eabi-gcc program at a user specified path, or PATH variable if none provided
 const arm_gcc_pgm = if (b.option([]const u8, "armgcc", "Path to arm-none-eabi-gcc compiler")) |arm_gcc_path|
@@ -45,4 +46,5 @@ else
     };
 ```
 
-I use the same tricks from [02_drop_in_compiler](../02_drop_in_compiler) to find and populate the pre-compiled Newlib libc that comes bundled with `arm-none-eabi-gcc`. You should now be able to build blink by calling `zig build`!
+I use the same tricks from [02_drop_in_compiler](../02_drop_in_compiler) to find and populate the pre-compiled Newlib libc that comes bundled with `arm-none-eabi-gcc`. You should now be able to build blink by calling `zig build`! Note that there are some potential naming collision issues with manually linking in `libc_nano` and `libm` that you can read more about [here](https://github.com/ziglang/zig/issues/24558). Zig is in the process of implementing its own version of libc, which you can contribute to [here](https://codeberg.org/ziglang/zig/issues/30978) which will eliminate
+all of these annoying manual linking steps, removing the dependence on `arm-none-eabi-gcc` compiler entirely.

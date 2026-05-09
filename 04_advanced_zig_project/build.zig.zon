@@ -4,8 +4,8 @@
     .version = "0.0.0",
     .dependencies = .{
         .gatz = .{
-            .url = "git+https://github.com/haydenridd/gcc-arm-to-zig#03dcd9ebcfc2f939cc4b053cb3796d9a0f91dd9e",
-            .hash = "gatz-0.0.0-aAr5xGCoAAAZbkEgw4SfS63VakN8gV0M3VT48tInlsLc",
+            .url = "git+https://github.com/haydenridd/gcc-arm-to-zig#113b9fba5aeb0a699c68589d28822f2c9ed06aa8",
+            .hash = "gatz-0.0.0-aAr5xLWpAACL8mBW5nxLU5KMFE4xvdGGoztbyGKw9tfr",
         },
     },
     .paths = .{
