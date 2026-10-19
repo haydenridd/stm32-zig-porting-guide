@@ -31,13 +31,11 @@ pub fn build(b: *std.Build) void {
     // User Options
 
     // Try to find arm-none-eabi-gcc program at a user specified path, or PATH variable if none provided
-    const arm_gcc_pgm = if (b.option([]const u8, "armgcc", "Path to arm-none-eabi-gcc compiler")) |arm_gcc_path|
-        b.findProgram(&.{"arm-none-eabi-gcc"}, &.{arm_gcc_path}) catch {
-            std.log.err("Couldn't find arm-none-eabi-gcc at provided path: {s}\n", .{arm_gcc_path});
-            unreachable;
-        }
-    else
-        b.findProgram(&.{"arm-none-eabi-gcc"}, &.{}) catch {
+    if (b.option([]const u8, "armgcc", "Path to arm-none-eabi-gcc compiler")) |arm_gcc_path| {
+        b.addSearchPrefix(arm_gcc_path);
+    }
+    const arm_gcc_pgm =
+        b.findProgram(.{ .names = &.{"arm-none-eabi-gcc"} }) orelse {
             std.log.err("Couldn't find arm-none-eabi-gcc in PATH, try manually providing the path to this executable with -Darmgcc=[path]\n", .{});
             unreachable;
         };

@@ -44,6 +44,12 @@ We also want to use a Zig package to make adding Newlib easier. We can add that 
 zig fetch --save git+https://github.com/haydenridd/gcc-arm-to-zig
 ```
 
+Lastly, we're going to do some automatic translation of C header files to Zig code to make calling HAL C code easier,
+we add that package with:
+```
+zig fetch --save git+https://codeberg.org/ziglang/translate-c#zig-0.17.x
+```
+
 Our `build.zig.zon` now looks like:
 ``` zon
 .{
@@ -52,8 +58,12 @@ Our `build.zig.zon` now looks like:
     .version = "0.0.0",
     .dependencies = .{
         .gatz = .{
-            .url = "git+https://github.com/haydenridd/gcc-arm-to-zig#03dcd9ebcfc2f939cc4b053cb3796d9a0f91dd9e",
-            .hash = "gatz-0.0.0-aAr5xGCoAAAZbkEgw4SfS63VakN8gV0M3VT48tInlsLc",
+            .url = "git+https://github.com/haydenridd/gcc-arm-to-zig#1648d9dbb2f47f5fb26cfb6ca7558a189632f541",
+            .hash = "gatz-0.1.0-aAr5xEWwAABLD3uklNArGHNFdihlPiliEXqxiizOi17X",
+        },
+        .translate_c = .{
+            .url = "git+https://codeberg.org/ziglang/translate-c?ref=zig-0.17.x#02ff0c523fb92a38939b04d0145c4a9602a74d56",
+            .hash = "translate_c-2.0.0-Q_BUWltOBwBYABF84EUL208pIFeUIwbBs29FmVBaafN5",
         },
     },
     .paths = .{
@@ -65,13 +75,25 @@ Our `build.zig.zon` now looks like:
 }
 ```
 
-We'll cover actually using this package later.
+We'll cover actually using these packages later.
 
 Because Zig's build system is just Zig code, we can make a function that adds our HAL code to our application module to keep this out of the way of our application code:
 ```Zig
 fn addHalCode(b: *std.Build, module: *std.Build.Module) void {
 
-    // Add STM32 Hal
+    // Translate HAL main header to zig code
+    const translate_c = b.dependency("translate_c", .{});
+    const t: Translator = .init(translate_c, .{
+        .name = "stm32_hal",
+        .c_source_file = b.path("stm32_hal/Core/Inc/main.h"),
+        .target = module.resolved_target.?,
+        .optimize = module.optimize.?,
+        .default_init = false,
+        .link_libc = false,
+    });
+    module.addImport("stm32_hal", t.mod);
+
+    // HAL header paths
     const headers = .{
         "stm32_hal/Core/Inc",
         "stm32_hal/Drivers/STM32F7xx_HAL_Driver/Inc",
@@ -81,6 +103,16 @@ fn addHalCode(b: *std.Build, module: *std.Build.Module) void {
     };
     inline for (headers) |header| {
         module.addIncludePath(b.path(header));
+        // The translator also needs these include paths
+        t.addIncludePath(b.path(header));
+    }
+
+    // C Macros needed to be defined for HAL
+    const c_macros = &.{ "USE_HAL_DRIVER", "STM32F750xx" };
+    inline for (c_macros) |c_macro| {
+        module.addCMacro(c_macro, "");
+        // Header translation also needs to have these defined
+        t.defineCMacro(c_macro, null);
     }
 
     // Source files
@@ -111,10 +143,6 @@ fn addHalCode(b: *std.Build, module: *std.Build.Module) void {
         },
         .flags = &.{"-std=c11"},
     });
-
-    // Neccessary for HAL
-    module.addCMacro("USE_HAL_DRIVER", "");
-    module.addCMacro("STM32F750xx", "");
 
     // Startup file
     module.addAssemblyFile(b.path("stm32_hal/startup_stm32f750xx.s"));
@@ -202,17 +230,51 @@ promise to the compiler that there was an `extern` symbol somewhere called `zigM
 
 ## Calling HAL Code from Zig
 
-Now we get into one of Zig's best features: C interoperability. We have a couple options here. The first, and usually easiest, is to use Zig's built-in functions
-`@cImport` and `@cInclude`. Generally speaking, when working with ST's generated code, you get access to "everything" by importing the `main.h` file. I won't comment on whether this is good design or not, but we will use it as our entry point to accessing HAL functions. So we add to `main.zig`:
+Now we get into one of Zig's best features: C interoperability. We have a couple options here. The first, 
+and usually easiest, is to use the official Zig C translation package we fetched earlier. Generally speaking, when
+working with ST's generated code, you get access to "everything" by importing the `main.h` file. I won't comment on
+whether this is good design or not, but we will use it as our entry point to accessing HAL functions.
+
+Going back to our `build.zig`, take note of the following:
+
 ``` Zig
-const stm32_hal = @cImport({
-    @cDefine("STM32F750xx", {});
-    @cDefine("USE_HAL_DRIVER", {});
-    @cInclude("main.h");
-});
+// Translate HAL main header to zig code
+    const translate_c = b.dependency("translate_c", .{});
+    const t: Translator = .init(translate_c, .{
+        .name = "stm32_hal",
+        .c_source_file = b.path("stm32_hal/Core/Inc/main.h"),
+        .target = module.resolved_target.?,
+        .optimize = module.optimize.?,
+        .default_init = false,
+        .link_libc = false,
+    });
+    module.addImport("stm32_hal", t.mod);
 ```
 
-Note that we need to define the macros `STM32F750xx` and `USE_HAL_DRIVER` for the HAL code to compile correctly. Sadly Zig's C translation code doesn't know about command line macro definitions (defs not in headers), so we have to provide these manually. We can now spruce up `zigMain()` by calling some HAL code:
+This creates a translator that will attempt to create Zig equivalent structures, variables, function prototypes, etc. 
+for everything it finds in `main.h`, *as well as everything included recursively by main.h*. In addition to supplying
+the include paths for the HAL to our firmware executable, we also need to supply these to the translator so it knows
+where to find headers included by `main.h`. Also note that we need to manually define the macros `STM32F750xx`
+and `USE_HAL_DRIVER` for the HAL code to compile correctly as normally these
+are supplied on the command line calls to the compiler in ST's workflow. We need to do this for our main executable,
+as well as the "translator" which is really just an executable running on our computer doing the actual Zig code generation:
+``` Zig
+inline for (headers) |header| {
+    module.addIncludePath(b.path(header));
+    // The translator also needs these include paths
+    t.addIncludePath(b.path(header));
+}
+
+// C Macros needed to be defined for HAL
+const c_macros = &.{ "USE_HAL_DRIVER", "STM32F750xx" };
+inline for (c_macros) |c_macro| {
+    module.addCMacro(c_macro, "");
+    // Header translation also needs to have these defined
+    t.defineCMacro(c_macro, null);
+}
+```
+
+We can now spruce up `zigMain()` by calling some HAL code:
 ``` Zig
 while (true) {
     stm32_hal.HAL_GPIO_WritePin(stm32_hal.LED_BLINK_GPIO_Port, stm32_hal.LED_BLINK_Pin, stm32_hal.GPIO_PIN_RESET);
@@ -221,12 +283,20 @@ while (true) {
     stm32_hal.HAL_Delay(1000);
 }
 ```
-Notice that everything is namespaced under `stm32_hal`, as that is what we assigned the result of `@cImport` to. You should now have blinky again! But how does Zig do this? Well, browse your `.zig-cache/o/` directory and look for a file called `cimport.zig`. This is a file generated by Zig that is a Zig API generated from a C header file. Note that our file is ~26000 lines long!! This is because `main.h` imports a LOT of ST header files, and so Zig generated an API for *every header file included*. Note that header translation has it's limits so perusing this file you will see things like:
+Notice that everything is namespaced under `stm32_hal`, as that is what we named our module when calling the translator.
+You should now have blinky again! But how does Zig do this? Well, browse your `.zig-cache/o/` directory and look for a
+file called `stm32_hal.zig`. This is the result of the translator. Note that this file is ~26000 lines long!! This is
+because `main.h` imports a LOT of ST header files, and so we generated an API for *every header file included*. Note
+that header translation has it's limits so perusing this file you will see things like:
+
 ``` Zig
+// stm32_hal/Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_rcc_ex.h:2085:9
 pub const __HAL_RCC_LPTIM1_CLK_SLEEP_ENABLE = @compileError("unable to translate C expr: expected ')' instead got '|='");
 ```
+
 Trying to access unresolved symbols will throw a compile error.
-There is nothing magic about what Zig's doing here, in fact by picking bits and pieces out of this file, we can remove the need entirely for `@cImport` and just write the neccessary Zig code ourselves:
+There is nothing magic about what the translator is doing here, in fact by picking bits and pieces out of this file,
+we can remove the need entirely for the translator and just write the neccessary Zig code ourselves:
 ``` Zig
 const stm32_hal = struct {
     pub const GPIO_TypeDef = extern struct {
@@ -255,6 +325,7 @@ const stm32_hal = struct {
 };
 ```
 
-This functions the exact same way, and is only ~25 lines of code instead of 26000! However, should we want to use another peripheral/pin, we would have to go hunting around again in `cimport.zig` for the appropriate functions/datastructures. 
+This functions the exact same way, and is only ~25 lines of code instead of 26000! However, should we want to use
+another peripheral/pin, we would have to go hunting around again in the HAL for the appropriate functions/datastructures.
 
 And there we have it: a working blinky, using Zig + vendor C code, that is organized reasonably well for further development.

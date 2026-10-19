@@ -64,7 +64,19 @@ pub fn build(b: *std.Build) void {
 
 fn addHalCode(b: *std.Build, module: *std.Build.Module) void {
 
-    // Add STM32 Hal
+    // Translate HAL main header to zig code
+    const translate_c = b.dependency("translate_c", .{});
+    const t: Translator = .init(translate_c, .{
+        .name = "stm32_hal",
+        .c_source_file = b.path("stm32_hal/Core/Inc/main.h"),
+        .target = module.resolved_target.?,
+        .optimize = module.optimize.?,
+        .default_init = false,
+        .link_libc = false,
+    });
+    module.addImport("stm32_hal", t.mod);
+
+    // HAL header paths
     const headers = .{
         "stm32_hal/Core/Inc",
         "stm32_hal/Drivers/STM32F7xx_HAL_Driver/Inc",
@@ -74,6 +86,16 @@ fn addHalCode(b: *std.Build, module: *std.Build.Module) void {
     };
     inline for (headers) |header| {
         module.addIncludePath(b.path(header));
+        // The translator also needs these include paths
+        t.addIncludePath(b.path(header));
+    }
+
+    // C Macros needed to be defined for HAL
+    const c_macros = &.{ "USE_HAL_DRIVER", "STM32F750xx" };
+    inline for (c_macros) |c_macro| {
+        module.addCMacro(c_macro, "");
+        // Header translation also needs to have these defined
+        t.defineCMacro(c_macro, null);
     }
 
     // Source files
@@ -105,10 +127,6 @@ fn addHalCode(b: *std.Build, module: *std.Build.Module) void {
         .flags = &.{"-std=c11"},
     });
 
-    // Neccessary for HAL
-    module.addCMacro("USE_HAL_DRIVER", "");
-    module.addCMacro("STM32F750xx", "");
-
     // Startup file
     module.addAssemblyFile(b.path("stm32_hal/startup_stm32f750xx.s"));
 }
@@ -126,3 +144,5 @@ fn addNewlib(b: *std.Build, module: *std.Build.Module) void {
         },
     };
 }
+
+const Translator = @import("translate_c").Translator;

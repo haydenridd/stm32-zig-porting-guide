@@ -4,8 +4,12 @@
     .version = "0.0.0",
     .dependencies = .{
         .gatz = .{
-            .url = "git+https://github.com/haydenridd/gcc-arm-to-zig#113b9fba5aeb0a699c68589d28822f2c9ed06aa8",
-            .hash = "gatz-0.0.0-aAr5xLWpAACL8mBW5nxLU5KMFE4xvdGGoztbyGKw9tfr",
+            .url = "git+https://github.com/haydenridd/gcc-arm-to-zig#1648d9dbb2f47f5fb26cfb6ca7558a189632f541",
+            .hash = "gatz-0.1.0-aAr5xEWwAABLD3uklNArGHNFdihlPiliEXqxiizOi17X",
+        },
+        .translate_c = .{
+            .url = "git+https://codeberg.org/ziglang/translate-c?ref=zig-0.17.x#02ff0c523fb92a38939b04d0145c4a9602a74d56",
+            .hash = "translate_c-2.0.0-Q_BUWltOBwBYABF84EUL208pIFeUIwbBs29FmVBaafN5",
         },
     },
     .paths = .{
